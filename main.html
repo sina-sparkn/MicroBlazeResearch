@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>پیاده‌سازی پردازنده MicroBlaze در FPGA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Chosen Palette: Calm Harmony -->
+    <!-- Application Structure Plan: A single-page, vertical-scrolling application with a sticky top navigation bar for easy access to all sections. The structure is thematic rather than linear, starting with a general introduction, followed by the technical implementation process, software development aspects, benefits, and concluding with real-world applications. This flow guides the user from 'what' and 'why' to 'how' and 'where', making a complex topic digestible. Interactive elements like a clickable flowchart and tabbed content panes are used to layer information and prevent cognitive overload, enhancing user exploration and understanding. -->
+    <!-- Visualization & Content Choices:
+        - Introduction: A doughnut chart (Chart.js) is used to visually represent the typical resource footprint of a MicroBlaze core, making the abstract concept of resource utilization tangible. Goal: Inform.
+        - Implementation Steps: An HTML/CSS-based flowchart is used instead of a static image. This allows for interactivity (hover/click effects) and ensures scalability and responsiveness. Goal: Organize & Explain Process.
+        - Software Development: A tabbed interface separates different programming approaches (Bare-metal, RTOS, Linux), allowing users to compare them without being overwhelmed. Goal: Compare & Organize.
+        - Advantages: A bar chart (Chart.js) demonstrates the performance gain from hardware acceleration, a key advantage of the FPGA/MicroBlaze approach. This provides a clear, data-driven justification. Goal: Compare & Justify.
+        - All other content is presented in clear text blocks, styled cards, and lists for readability, using Tailwind CSS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+      body,
+      html {
+        font-family: "Vazirmatn", sans-serif;
+        scroll-behavior: smooth;
+      }
+      .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        max-width: 400px;
+        margin: auto;
+      }
+      @media (min-width: 768px) {
+        .chart-container {
+          height: 350px;
+        }
+      }
+      .flow-arrow::after {
+        content: "▼";
+        font-size: 1.5rem;
+        color: #0891b2;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .nav-link {
+        transition: all 0.3s;
+        border-bottom: 2px solid transparent;
+      }
+      .nav-link:hover,
+      .nav-link.active {
+        color: #0891b2;
+        border-bottom-color: #0891b2;
+      }
+      .tab-button.active {
+        background-color: #0891b2;
+        color: white;
+      }
+      .flow-step {
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      .flow-step:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+          0 4px 6px -4px rgb(0 0 0 / 0.1);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-800">
+    <header class="bg-white shadow-md sticky top-0 z-50">
+      <nav class="mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex-shrink-0 gap-5 flex-wrap">
+            <h1 class="text-xl font-bold text-cyan-700">پردازنده MicroBlaze</h1>
+            <p class="text-zinc-600 text-sm">علی زارع - 9911311121</p>
+          </div>
+          <div class="hidden md:block">
+            <div class="ml-10 flex items-baseline space-x-4 space-x-reverse">
+              <a href="#intro" class="nav-link px-3 py-2 text-sm font-medium"
+                >معرفی</a
+              >
+              <a
+                href="#implementation"
+                class="nav-link px-3 py-2 text-sm font-medium"
+                >مراحل پیاده‌سازی</a
+              >
+              <a href="#software" class="nav-link px-3 py-2 text-sm font-medium"
+                >توسعه نرم‌افزار</a
+              >
+              <a
+                href="#advantages"
+                class="nav-link px-3 py-2 text-sm font-medium"
+                >مزایا</a
+              >
+              <a
+                href="#applications"
+                class="nav-link px-3 py-2 text-sm font-medium"
+                >کاربردها</a
+              >
+            </div>
+          </div>
+          <div class="md:hidden">
+            <select
+              id="mobile-nav"
+              class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5"
+            >
+              <option value="#intro">معرفی پردازنده</option>
+              <option value="#implementation">مراحل پیاده‌سازی</option>
+              <option value="#software">توسعه نرم‌افزار</option>
+              <option value="#advantages">مزایا</option>
+              <option value="#applications">کاربردها</option>
+            </select>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+      <section
+        id="hero"
+        class="text-center py-12 md:py-20 bg-white rounded-xl shadow-lg"
+      >
+        <h2 class="text-4xl md:text-5xl font-bold text-cyan-800 mb-4">
+          پیاده‌سازی پردازنده MicroBlaze در FPGA
+        </h2>
+        <p class="max-w-3xl mx-auto text-slate-600">
+          یک کاوش عمیق در معماری، روش‌های پیاده‌سازی، مزایا و کاربردهای پردازنده
+          نرم (Soft Processor) قدرتمند شرکت Xilinx برای ساخت سیستم‌های روی چیپ
+          (SoC) انعطاف‌پذیر.
+        </p>
+      </section>
+
+      <section id="intro" class="py-16 scroll-mt-16">
+        <div class="text-center mb-12">
+          <h3 class="text-3xl font-bold text-slate-800">
+            معرفی پردازنده MicroBlaze
+          </h3>
+          <p class="mt-4 text-slate-600 max-w-2xl mx-auto">
+            MicroBlaze یک هسته پردازنده نرم 32 بیتی مبتنی بر معماری RISC است که
+            برای استفاده در FPGAهای شرکت Xilinx (اکنون AMD) بهینه شده است. "نرم"
+            بودن به این معناست که این پردازنده به جای اینکه یک قطعه سخت‌افزاری
+            ثابت باشد، به صورت کدهای توصیف سخت‌افزار (HDL) پیاده‌سازی شده و
+            می‌توان آن را متناسب با نیازهای پروژه پیکربندی و در منطق قابل
+            برنامه‌ریزی FPGA سنتز کرد.
+          </p>
+        </div>
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+          <div class="bg-white p-6 rounded-lg shadow-md">
+            <h4 class="text-xl font-bold mb-4 text-cyan-700">
+              ویژگی‌های کلیدی
+            </h4>
+            <ul class="space-y-3 list-inside list-disc text-slate-700">
+              <li>
+                <strong class="font-semibold">معماری RISC:</strong> مبتنی بر
+                معماری مجموعه دستورات کاهش یافته برای کارایی بالا و سادگی.
+              </li>
+              <li>
+                <strong class="font-semibold">پیکربندی‌پذیری بالا:</strong>
+                قابلیت فعال/غیرفعال کردن واحدهای مختلف مانند حافظه کش، واحد ضرب،
+                خط لوله و ... برای بهینه‌سازی منابع و کارایی.
+              </li>
+              <li>
+                <strong class="font-semibold">خط لوله (Pipeline):</strong>
+                پشتیبانی از خط لوله 3 یا 5 مرحله‌ای برای افزایش توان عملیاتی
+                دستورالعمل‌ها.
+              </li>
+              <li>
+                <strong class="font-semibold">باس‌های استاندارد:</strong>
+                استفاده از باس استاندارد صنعتی AXI4 برای اتصال آسان به حافظه و
+                تجهیزات جانبی (Peripherals).
+              </li>
+              <li>
+                <strong class="font-semibold">اکوسیستم نرم‌افزاری:</strong>
+                پشتیبانی کامل توسط ابزارهای توسعه Xilinx مانند Vivado و Vitis
+                برای طراحی سخت‌افزار و نرم‌افزار.
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="text-xl font-bold mb-4 text-center text-cyan-700">
+              نمودار تخمینی مصرف منابع
+            </h4>
+            <p class="text-center text-sm text-slate-500 mb-2">
+              این نمودار یک توزیع معمول از منابع FPGA را نشان می‌دهد که توسط یک
+              پیکربندی متوسط MicroBlaze اشغال می‌شود.
+            </p>
+            <div class="chart-container">
+              <canvas id="resourceChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="implementation"
+        class="py-16 scroll-mt-16 bg-white rounded-xl shadow-lg p-5"
+      >
+        <div class="text-center mb-12">
+          <h3 class="text-3xl font-bold text-slate-800">
+            روش و مراحل پیاده‌سازی
+          </h3>
+          <p class="mt-4 text-slate-600 max-w-3xl mx-auto">
+            پیاده‌سازی یک سیستم مبتنی بر MicroBlaze در Vivado یک فرآیند
+            ساختاریافته است که طراحی سخت‌افزار و نرم‌افزار را در بر می‌گیرد. این
+            فرآیند با استفاده از ابزار گرافیکی IP Integrator انجام می‌شود که به
+            طراح اجازه می‌دهد بلوک‌های IP را به سادگی به هم متصل کند.
+          </p>
+        </div>
+        <div class="flex flex-col items-center space-y-2">
+          <div
+            class="flow-step w-full max-w-md p-4 bg-cyan-50 border-r-4 border-cyan-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">۱. ایجاد پروژه و Block Design در Vivado</h4>
+            <p class="text-sm text-slate-600">
+              تنظیم پروژه جدید و ایجاد یک دیاگرام بلوکی (Block Design) برای
+              چیدمان سیستم.
+            </p>
+          </div>
+          <div class="flow-arrow"></div>
+          <div
+            class="flow-step w-full max-w-md p-4 bg-cyan-50 border-r-4 border-cyan-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">۲. افزودن و پیکربندی MicroBlaze</h4>
+            <p class="text-sm text-slate-600">
+              اضافه کردن IP Core پردازنده MicroBlaze و تنظیم پارامترهای آن مانند
+              فرکانس کلاک، اندازه کش و واحدهای اختیاری.
+            </p>
+          </div>
+          <div class="flow-arrow"></div>
+          <div
+            class="flow-step w-full max-w-md p-4 bg-cyan-50 border-r-4 border-cyan-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">۳. افزودن حافظه و تجهیزات جانبی</h4>
+            <p class="text-sm text-slate-600">
+              اضافه کردن کنترلر حافظه (مانند Block RAM) و IPهای جانبی مورد نیاز
+              مانند UART, GPIO, Timer.
+            </p>
+          </div>
+          <div class="flow-arrow"></div>
+          <div
+            class="flow-step w-full max-w-md p-4 bg-cyan-50 border-r-4 border-cyan-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">
+              ۴. اتصال بلوک‌ها (Run Connection Automation)
+            </h4>
+            <p class="text-sm text-slate-600">
+              استفاده از ابزار اتوماتیک Vivado برای اتصال باس‌های AXI و LMB بین
+              پردازنده، حافظه و تجهیزات جانبی.
+            </p>
+          </div>
+          <div class="flow-arrow"></div>
+          <div
+            class="flow-step w-full max-w-md p-4 bg-amber-50 border-r-4 border-amber-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">۵. سنتز، پیاده‌سازی و تولید Bitstream</h4>
+            <p class="text-sm text-slate-600">
+              تبدیل طراحی گرافیکی به منطق سخت‌افزاری، جایگذاری و مسیریابی آن روی
+              FPGA و در نهایت تولید فایل پیکربندی سخت‌افزار (.bit).
+            </p>
+          </div>
+          <div class="flow-arrow"></div>
+          <div
+            class="flow-step w-full max-w-md p-4 bg-green-50 border-r-4 border-green-500 rounded-lg shadow-sm"
+          >
+            <h4 class="font-bold">
+              ۶. صدور سخت‌افزار و توسعه نرم‌افزار در Vitis
+            </h4>
+            <p class="text-sm text-slate-600">
+              صدور پلتفرم سخت‌افزاری (.xsa) و نوشتن، کامپایل و دیباگ کردن کد
+              C/C++ برای MicroBlaze در محیط Vitis.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="software" class="py-16 scroll-mt-16">
+        <div class="text-center mb-12">
+          <h3 class="text-3xl font-bold text-slate-800">
+            توسعه نرم‌افزار و کدنویسی
+          </h3>
+          <p class="mt-4 text-slate-600 max-w-2xl mx-auto">
+            قدرت واقعی MicroBlaze در اکوسیستم نرم‌افزاری آن نهفته است.
+            توسعه‌دهندگان می‌توانند از محیط Vitis برای نوشتن برنامه‌های C/C++
+            استفاده کنند و بین رویکردهای مختلف بر اساس پیچیدگی پروژه انتخاب
+            نمایند.
+          </p>
+        </div>
+
+        <div class="w-full max-w-4xl mx-auto">
+          <div
+            class="mb-4 flex space-x-2 space-x-reverse rounded-lg p-1 bg-slate-200"
+          >
+            <button
+              class="tab-button flex-1 py-2 px-4 rounded-md text-sm font-medium transition active"
+              data-tab="baremetal"
+            >
+              Bare-metal
+            </button>
+            <button
+              class="tab-button flex-1 py-2 px-4 rounded-md text-sm font-medium transition"
+              data-tab="rtos"
+            >
+              سیستم‌عامل بلادرنگ (RTOS)
+            </button>
+            <button
+              class="tab-button flex-1 py-2 px-4 rounded-md text-sm font-medium transition"
+              data-tab="linux"
+            >
+              لینوکس (PetaLinux)
+            </button>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-md">
+            <div id="baremetal" class="tab-content">
+              <h4 class="text-xl font-bold mb-2 text-cyan-700">
+                برنامه‌نویسی Bare-metal (بدون سیستم‌عامل)
+              </h4>
+              <p class="mb-4 text-slate-600">
+                این رویکرد ساده‌ترین روش برای کنترل مستقیم سخت‌افزار است. برنامه
+                مستقیماً روی پردازنده اجرا می‌شود و کنترل کامل منابع را در
+                اختیار دارد. این روش برای کاربردهای ساده و کنترل‌های بلادرنگ با
+                تاخیر کم ایده‌آل است. در این حالت، از کتابخانه‌های BSP (Board
+                Support Package) برای دسترسی به رجیسترهای تجهیزات جانبی استفاده
+                می‌شود.
+              </p>
+              <p class="text-sm text-slate-500 mb-2">
+                نمونه کد C برای چشمک زدن LED:
+              </p>
+              <div
+                class="bg-slate-900 text-white p-4 rounded-lg text-left"
+                dir="ltr"
+              >
+                <pre
+                  class="overflow-x-scroll"
+                ><code class="language-c ">#include "xgpio.h"
+#include "xparameters.h"
+#include "xil_printf.h"
+
+int main() {
+    XGpio gpio;
+    u32 data = 0x01;
+
+    XGpio_Initialize(&gpio, XPAR_GPIO_0_DEVICE_ID);
+    XGpio_SetDataDirection(&gpio, 1, 0x0); // Set as output
+
+    while(1) {
+        XGpio_DiscreteWrite(&gpio, 1, data);
+        for(int i=0; i < 10000000; i++); // Simple delay
+        data = ~data;
+    }
+    return 0;
+}</code></pre>
+              </div>
+            </div>
+            <div id="rtos" class="tab-content hidden">
+              <h4 class="text-xl font-bold mb-2 text-cyan-700">
+                استفاده از سیستم‌عامل بلادرنگ (مانند FreeRTOS)
+              </h4>
+              <p class="text-slate-600">
+                برای برنامه‌های پیچیده‌تر که نیاز به مدیریت همزمان چندین وظیفه
+                (Task)، زمان‌بندی و ارتباط بین وظایف دارند، استفاده از یک RTOS
+                مانند FreeRTOS توصیه می‌شود. RTOS یک لایه انتزاعی روی سخت‌افزار
+                فراهم می‌کند که مدیریت منابع و زمان‌بندی را ساده‌تر می‌سازد و به
+                توسعه برنامه‌های ماژولار و قابل اطمینان کمک می‌کند.
+              </p>
+              <ul class="mt-4 space-y-2 list-inside list-disc text-slate-700">
+                <li>مدیریت وظایف چندگانه (Multi-tasking)</li>
+                <li>زمان‌بندی قطعی (Deterministic Scheduling)</li>
+                <li>ارتباطات بین وظیفه‌ای (Inter-task Communication)</li>
+              </ul>
+            </div>
+            <div id="linux" class="tab-content hidden">
+              <h4 class="text-xl font-bold mb-2 text-cyan-700">
+                اجرای سیستم‌عامل لینوکس (با PetaLinux)
+              </h4>
+              <p class="text-slate-600">
+                برای سیستم‌های بسیار پیچیده که به قابلیت‌های سطح بالا مانند پشته
+                شبکه (TCP/IP)، سیستم فایل، درایورهای استاندارد و کتابخانه‌های
+                گسترده نیاز دارند، می‌توان یک نسخه سفارشی از لینوکس را با ابزار
+                PetaLinux روی MicroBlaze اجرا کرد. این کار MicroBlaze را به یک
+                سیستم محاسباتی کامل با اکوسیستم نرم‌افزاری غنی تبدیل می‌کند،
+                هرچند که منابع سخت‌افزاری بیشتری (مانند حافظه DDR) نیاز دارد.
+              </p>
+              <ul class="mt-4 space-y-2 list-inside list-disc text-slate-700">
+                <li>دسترسی به شبکه و اینترنت</li>
+                <li>سیستم فایل پیشرفته</li>
+                <li>پشتیبانی از کتابخانه‌های متن‌باز متعدد</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="advantages"
+        class="py-16 scroll-mt-16 bg-white rounded-xl shadow-lg p-5"
+      >
+        <div class="text-center mb-12">
+          <h3 class="text-3xl font-bold text-slate-800 pr-10">مزایای کلیدی</h3>
+          <p class="mt-4 text-slate-600 max-w-2xl mx-auto">
+            استفاده از MicroBlaze در FPGA ترکیبی منحصربه‌فرد از انعطاف‌پذیری
+            نرم‌افزار و کارایی سخت‌افزار را ارائه می‌دهد.
+          </p>
+        </div>
+        <div class="grid md:grid-cols-2 gap-8 items-center">
+          <div class="space-y-6">
+            <div class="flex items-start space-x-4 space-x-reverse">
+              <div
+                class="flex-shrink-0 w-12 h-12 bg-cyan-100 text-cyan-600 rounded-full flex items-center justify-center text-2xl"
+              >
+                ⚙️
+              </div>
+              <div>
+                <h4 class="font-bold text-lg">انعطاف‌پذیری و سفارشی‌سازی</h4>
+                <p class="text-slate-600">
+                  طراحان می‌توانند پردازنده را دقیقا متناسب با نیاز خود پیکربندی
+                  کرده و حتی دستورالعمل‌های سفارشی (Custom Instructions) برای
+                  تسریع الگوریتم‌های خاص به آن اضافه کنند.
+                </p>
+              </div>
+            </div>
+            <div class="flex items-start space-x-4 space-x-reverse">
+              <div
+                class="flex-shrink-0 w-12 h-12 bg-cyan-100 text-cyan-600 rounded-full flex items-center justify-center text-2xl"
+              >
+                🔗
+              </div>
+              <div>
+                <h4 class="font-bold text-lg">ادغام سخت‌افزار و نرم‌افزار</h4>
+                <p class="text-slate-600">
+                  امکان طراحی شتاب‌دهنده‌های سخت‌افزاری برای وظایف سنگین و اتصال
+                  آسان آنها به پردازنده، که به آن Partitioning (افراز) وظایف
+                  می‌گویند.
+                </p>
+              </div>
+            </div>
+            <div class="flex items-start space-x-4 space-x-reverse">
+              <div
+                class="flex-shrink-0 w-12 h-12 bg-cyan-100 text-cyan-600 rounded-full flex items-center justify-center text-2xl"
+              >
+                ⏱️
+              </div>
+              <div>
+                <h4 class="font-bold text-lg">کاهش زمان و هزینه توسعه</h4>
+                <p class="text-slate-600">
+                  حذف نیاز به طراحی ASIC یا استفاده از چندین چیپ مجزا، باعث کاهش
+                  هزینه تولید (NRE) و تسریع چرخه طراحی می‌شود.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4 class="text-xl font-bold mb-4 text-center text-cyan-700">
+              مقایسه کارایی با شتاب‌دهنده سخت‌افزاری
+            </h4>
+            <p class="text-center text-sm text-slate-500 mb-2">
+              این نمودار افزایش کارایی چشمگیر یک وظیفه محاسباتی (مثلا فیلتر
+              تصویر) را هنگام انتقال آن از نرم‌افزار به یک شتاب‌دهنده سخت‌افزاری
+              سفارشی نشان می‌دهد.
+            </p>
+            <div class="chart-container" style="max-width: 500px">
+              <canvas id="performanceChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="applications" class="py-16 scroll-mt-16">
+        <div class="text-center mb-12">
+          <h3 class="text-3xl font-bold text-slate-800">کاربردهای رایج</h3>
+          <p class="mt-4 text-slate-600 max-w-2xl mx-auto">
+            انعطاف‌پذیری MicroBlaze آن را برای طیف گسترده‌ای از کاربردها در
+            صنایع مختلف مناسب می‌سازد.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">🏭</div>
+            <h4 class="font-bold text-lg mb-2">کنترل صنعتی و اتوماسیون</h4>
+            <p class="text-sm text-slate-600">
+              کنترل موتورها، بازوهای رباتیک، و سیستم‌های نظارت و کنترل فرآیند
+              (SCADA) که به پاسخ بلادرنگ و قابلیت اطمینان بالا نیاز دارند.
+            </p>
+          </div>
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">📡</div>
+            <h4 class="font-bold text-lg mb-2">پردازش سیگنال و تصویر</h4>
+            <p class="text-sm text-slate-600">
+              سیستم‌های رادار، تجهیزات پزشکی، و پردازش ویدیویی که در آن‌ها
+              MicroBlaze وظایف کنترلی را بر عهده گرفته و منطق FPGA پردازش‌های
+              سنگین را انجام می‌دهد.
+            </p>
+          </div>
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">🌐</div>
+            <h4 class="font-bold text-lg mb-2">تجهیزات شبکه و ارتباطات</h4>
+            <p class="text-sm text-slate-600">
+              پیاده‌سازی روترها، سوئیچ‌ها و فایروال‌های سفارشی که نیاز به پردازش
+              سریع بسته‌های داده و مدیریت پروتکل‌های شبکه دارند.
+            </p>
+          </div>
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">🚀</div>
+            <h4 class="font-bold text-lg mb-2">هوافضا و صنایع دفاعی</h4>
+            <p class="text-sm text-slate-600">
+              سیستم‌های اویونیک، هدایت و ناوبری، و جنگ الکترونیک که در آن‌ها
+              قابلیت اطمینان، امنیت و قابلیت به‌روزرسانی در میدان اهمیت حیاتی
+              دارد.
+            </p>
+          </div>
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">🚗</div>
+            <h4 class="font-bold text-lg mb-2">سیستم‌های خودرو</h4>
+            <p class="text-sm text-slate-600">
+              سیستم‌های کمک‌راننده پیشرفته (ADAS)، سیستم‌های سرگرمی داخل خودرو
+              (Infotainment) و کنترل واحدهای مختلف خودرو.
+            </p>
+          </div>
+          <div
+            class="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow"
+          >
+            <div class="text-3xl mb-3">🔬</div>
+            <h4 class="font-bold text-lg mb-2">تجهیزات تست و اندازه‌گیری</h4>
+            <p class="text-sm text-slate-600">
+              ساخت اسیلوسکوپ‌های دیجیتال، تحلیل‌گرهای منطقی و ژنراتورهای سیگنال
+              سفارشی با قابلیت‌های پردازشی پیشرفته.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-slate-800 text-white text-center py-6 mt-12">
+      <p>
+        این گزارش تعاملی برای نمایش قابلیت‌های پردازنده MicroBlaze ایجاد شده
+        است.
+      </p>
+      <div
+        class="flex gap-2 item-center text-sm text-slate-400 justify-center mt-5"
+      >
+        <p>تیر ماه ۱۴۰۴</p>
+        -
+        <p>علی زارع - 9911311121</p>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Resource Utilization Chart
+        const ctxResource = document
+          .getElementById("resourceChart")
+          .getContext("2d");
+        new Chart(ctxResource, {
+          type: "doughnut",
+          data: {
+            labels: [
+              "واحد منطقی LUT",
+              "حافظه بلوکی BRAM",
+              "پردازشگر سیگنال DSP",
+              "سایر",
+            ],
+            datasets: [
+              {
+                label: "درصد مصرف منابع",
+                data: [65, 20, 5, 10],
+                backgroundColor: [
+                  "rgba(8, 145, 178, 0.7)", // Cyan (Tailwind cyan-600)
+                  "rgba(249, 115, 22, 0.7)", // Orange (Tailwind orange-500)
+                  "rgba(132, 204, 22, 0.7)", // Lime green (Tailwind lime-500)
+                  "rgba(168, 85, 247, 0.7)", // Purple (Tailwind purple-500)
+                ],
+                borderColor: "white",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: {
+                  fontFamily: "Vazirmatn",
+                  color: "#334155",
+                },
+              },
+              tooltip: {
+                bodyFont: {
+                  fontFamily: "Vazirmatn",
+                },
+                titleFont: {
+                  fontFamily: "Vazirmatn",
+                },
+              },
+            },
+          },
+        });
+
+        // Performance Chart
+        const ctxPerformance = document
+          .getElementById("performanceChart")
+          .getContext("2d");
+        new Chart(ctxPerformance, {
+          type: "bar",
+          data: {
+            labels: [
+              "فقط پردازنده نرم‌افزار",
+              "پردازنده + شتاب‌ دهنده سخت‌افزاری",
+            ],
+            datasets: [
+              {
+                label: "زمان اجرا واحد نسبی - کمتر بهتر است",
+                data: [100, 18],
+                backgroundColor: [
+                  "rgba(245, 158, 11, 0.7)", // amber-500
+                  "rgba(8, 145, 178, 0.7)", // cyan-600
+                ],
+                borderColor: ["rgb(245, 158, 11)", "rgb(8, 145, 178)"],
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "x",
+            scales: {
+              x: {
+                beginAtZero: true,
+                ticks: {
+                  color: "#334155",
+                  font: { family: "Vazirmatn" },
+                },
+              },
+              y: {
+                ticks: {
+                  color: "#334155",
+                  font: { family: "Vazirmatn", size: 12 },
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                bodyFont: {
+                  fontFamily: "Vazirmatn",
+                },
+                titleFont: {
+                  fontFamily: "Vazirmatn",
+                },
+              },
+            },
+          },
+        });
+
+        // Tabs for Software section
+        const tabButtons = document.querySelectorAll(".tab-button");
+        const tabContents = document.querySelectorAll(".tab-content");
+
+        tabButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            tabButtons.forEach((btn) => btn.classList.remove("active"));
+            button.classList.add("active");
+
+            const tabId = button.getAttribute("data-tab");
+            tabContents.forEach((content) => {
+              if (content.id === tabId) {
+                content.classList.remove("hidden");
+              } else {
+                content.classList.add("hidden");
+              }
+            });
+          });
+        });
+
+        // Mobile navigation
+        const mobileNav = document.getElementById("mobile-nav");
+        mobileNav.addEventListener("change", (e) => {
+          window.location.hash = e.target.value;
+        });
+      });
+    </script>
+  </body>
+</html>
